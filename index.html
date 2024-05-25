@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agro Web App</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <!-- Leaflet Draw JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+        }
+        .leaflet-draw-toolbar a {
+            background-color: #fff;
+            border: 2px solid #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            text-align: center;
+            text-decoration: none;
+            display: block;
+        }
+        .leaflet-draw-toolbar a:hover {
+            background-color: #f4f4f4;
+            border-color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Agro Web App</h1>
+    <div id="map"></div>
+    <input type="text" id="location" placeholder="Enter your location">
+    <button onclick="searchLocation()">Search</button>
+    <button onclick="sendDataToLINE()">SEND DATA TO LINE</button>
+    <button id="createPolygonButton" onclick="togglePolygonDraw()">Create Polygon</button>
+    <button id="deletePolygonButton" onclick="deletePolygon()">Delete Polygon</button>
+    <button id="createLineButton" onclick="toggleLineDraw()">Create Line</button>
+    <button id="deleteLineButton" onclick="deleteLine()">Delete Line</button>
+
+    <script>
+        var map = L.map('map').setView([51.505, -0.09], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        var drawControl = new L.Control.Draw({
+            draw: {
+                polygon: true,
+                polyline: true,
+                rectangle: false,
+                circle: false,
+                marker: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                remove: true
+            }
+        });
+        map.addControl(drawControl);
+
+        map.on(L.Draw.Event.CREATED, function (event) {
+            var layer = event.layer;
+            drawnItems.addLayer(layer);
+
+            // Retrieve soil data when a new polygon is created
+            createPolygon(layer);
+        });
+
+        function searchLocation() {
+            var location = document.getElementById('location').value;
+            // Make API call to Nominatim for geocoding
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${location}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Assuming the first result is the most relevant
+                    if (data && data.length > 0) {
+                        var result = data[0];
+                        var lat = parseFloat(result.lat);
+                        var lon = parseFloat(result.lon);
+
+                        // Update map view to the searched location
+                        map.setView([lat, lon], 13);
+
+                        // Optionally, you can add a marker to the searched location
+                        L.marker([lat, lon]).addTo(map).bindPopup(location).openPopup();
+
+                        console.log("Latitude:", lat);
+                        console.log("Longitude:", lon);
+                    } else {
+                        console.error("No results found");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function sendDataToLINE() {
+            // Get polygon data and other necessary parameters
+            // var polygonData = drawnItems.toGeoJSON();
+            // var polygonID = 'your_polygon_id';
+            // var startDate = 'your_start_date';
+            // var endDate = 'your_end_date';
+            // var appID = 'your_app_id';
+
+            // // Make API call to AgroMonitoring API to fetch NDVI and ENVI data
+            // // Example API call: http://api.agromonitoring.com/agro/1.0/ndvi/history?start={start date}&end={end date}&polyid={ID of polygon}&appid={API key}
+            // // Implement this API call using JavaScript Fetch API or other AJAX methods
+
+            // // After retrieving data, construct a message and send it to LINE chatbot
+            // var message = "NDVI and ENVI data for your polygon:\n"; // Include NDVI and ENVI data here
+            // // Send message to LINE chatbot using appropriate method
+        }
+
+        function togglePolygonDraw() {
+            var polygonButton = document.getElementById('createPolygonButton');
+            if (drawControl.options.draw.polygon) {
+                drawControl.options.draw.polygon = false;
+                polygonButton.innerText = 'Create Polygon';
+            } else {
+                drawControl.options.draw.polygon = true;
+                polygonButton.innerText = 'Cancel Drawing';
+            }
+            map.removeControl(drawControl);
+            map.addControl(drawControl);
+        }
+
+        function deletePolygon() {
+            drawnItems.clearLayers();
+        }
+
+        function toggleLineDraw() {
+            var lineButton = document.getElementById('createLineButton');
+            if (drawControl.options.draw.polyline) {
+                drawControl.options.draw.polyline = false;
+                lineButton.innerText = 'Create Line';
+            } else {
+                drawControl.options.draw.polyline = true;
+                lineButton.innerText = 'Cancel Drawing';
+            }
+            map.removeControl(drawControl);
+            map.addControl(drawControl);
+        }
+
+        function deleteLine() {
+            // Remove all polylines from the map
+            drawnItems.eachLayer(function (layer) {
+                if (layer instanceof L.Polyline) {
+                    drawnItems.removeLayer(layer);
+                }
+            });
+        }
+
+        function createPolygon(layer) {
+            // Extract coordinates from the layer
+            var coordinates = layer.toGeoJSON().geometry.coordinates[0];
+
+            // Create payload for Agromonitoring polygon API
+            var payload = {
+                name: 'Polygon Sample',
+                geo_json: {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [coordinates]
+                    }
+                }
+            };
+
+            // Make API call to Agromonitoring polygon API to create a polygon
+            fetch('http://api.agromonitoring.com/agro/1.0/polygons?appid=c1e987e3342152a5e6caf65d2122c51e', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Log the response, which contains the created polygon ID
+                console.log('Polygon created successfully:', data);
+
+                // Retrieve soil data using the created polygon ID
+                getSoilAndNDVIData(data.id);
+            })
+            .catch(error => {
+                console.error('Error creating polygon:', error);
+            });
+        }
+
+        function getSoilAndNDVIData(polygonID) {
+    var appID = 'c1e987e3342152a5e6caf65d2122c51e'; // Your AgroMonitoring API key
+
+    // Define start and end dates as Unix timestamps (in seconds)
+    var startDate = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60); // 7 days ago
+    var endDate = Math.floor(Date.now() / 1000); // Current time
+
+    // Make API call to Agromonitoring API to fetch soil data for the created polygon
+    fetch(`http://api.agromonitoring.com/agro/1.0/soil?polyid=${polygonID}&appid=${appID}`)
+        .then(response => response.json())
+        .then(soilData => {
+            console.log("Soil Data for Polygon ID:", polygonID);
+            console.log(soilData); // Log the soil data to the console
+
+            // Make API call to Agromonitoring API to fetch NDVI data for the created polygon
+            fetch(`http://api.agromonitoring.com/agro/1.0/ndvi/history?start=${startDate}&end=${endDate}&polyid=${polygonID}&appid=${appID}`)
+                .then(response => response.json())
+                .then(ndviData => {
+                    console.log("NDVI Data for Polygon ID:", polygonID);
+                    console.log(ndviData); // Log the NDVI data to the console
+                })
+                .catch(error => {
+                    console.error('Error fetching NDVI data:', error);
+                });
+        })
+        .catch(error => {
+            console.error('Error fetching soil data:', error);
+        });
+}
+    </script>
+</body>
+</html>
