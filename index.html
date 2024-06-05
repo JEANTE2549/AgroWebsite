@@ -12,37 +12,155 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <!-- Leaflet Draw JavaScript -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <!-- Chart.js JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
     <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #343a40;
+            --map-border-color: #ced4da;
+            --button-bg-color: #007bff;
+            --button-text-color: #ffffff;
+            --button-hover-bg-color: #0056b3;
+            --toolbar-bg-color: #ffffff;
+            --toolbar-border-color: #343a40;
+            --toolbar-hover-bg-color: #e9ecef;
+            --toolbar-hover-border-color: #adb5bd;
+            --pre-bg-color: #e9ecef;
+            --pre-border-color: #ced4da;
+            --chart-line-color: rgba(75, 192, 192, 1);
+            --chart-background-color: rgba(75, 192, 192, 0.2);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #343a40;
+            --text-color: #f8f9fa;
+            --map-border-color: #495057;
+            --button-bg-color: #6c757d;
+            --button-text-color: #ffffff;
+            --button-hover-bg-color: #5a6268;
+            --toolbar-bg-color: #6c757d;
+            --toolbar-border-color: #f8f9fa;
+            --toolbar-hover-bg-color: #5a6268;
+            --toolbar-hover-border-color: #ced4da;
+            --pre-bg-color: #495057;
+            --pre-border-color: #6c757d;
+            --chart-line-color: rgba(255, 99, 132, 1);
+            --chart-background-color: rgba(255, 99, 132, 0.2);
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+        h1 {
+            text-align: center;
+        }
         #map {
             height: 400px;
             width: 100%;
+            border: 2px solid var(--map-border-color);
+            border-radius: 5px;
+            margin-bottom: 20px;
         }
         .leaflet-draw-toolbar a {
-            background-color: #fff;
-            border: 2px solid #fff;
+            background-color: var(--toolbar-bg-color);
+            border: 2px solid var(--toolbar-border-color);
             border-radius: 4px;
             cursor: pointer;
             margin-bottom: 10px;
             text-align: center;
             text-decoration: none;
             display: block;
+            color: var(--text-color);
+            padding: 5px;
         }
         .leaflet-draw-toolbar a:hover {
-            background-color: #f4f4f4;
-            border-color: #ccc;
+            background-color: var(--toolbar-hover-bg-color);
+            border-color: var(--toolbar-hover-border-color);
+        }
+        #location {
+            width: calc(100% - 200px);
+            padding: 10px;
+            border: 1px solid var(--map-border-color);
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--button-bg-color);
+            color: var(--button-text-color);
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: var(--button-hover-bg-color);
+        }
+        #themeSwitchButton {
+            background-color: var(--button-bg-color);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        #themeSwitchButton i {
+            color: var(--button-text-color);
+        }
+        #data {
+            margin-top: 20px;
+        }
+        #data h2 {
+            color: var(--text-color);
+        }
+        pre {
+            background-color: var(--pre-bg-color);
+            padding: 10px;
+            border: 1px solid var(--pre-border-color);
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        #ndviChartContainer {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
     <h1>Agro Web App</h1>
+    <button id="themeSwitchButton" onclick="toggleTheme()"><i class="fas fa-sun"></i></button>
     <div id="map"></div>
     <input type="text" id="location" placeholder="Enter your location">
     <button onclick="searchLocation()">Search</button>
-    <button onclick="sendDataToLINE()">SEND DATA TO LINE</button>
+    <!-- <button onclick="sendDataToLINE()">SEND DATA TO LINE</button>
     <button id="createPolygonButton" onclick="togglePolygonDraw()">Create Polygon</button>
     <button id="deletePolygonButton" onclick="deletePolygon()">Delete Polygon</button>
     <button id="createLineButton" onclick="toggleLineDraw()">Create Line</button>
-    <button id="deleteLineButton" onclick="deleteLine()">Delete Line</button>
+    <button id="deleteLineButton" onclick="deleteLine()">Delete Line</button> -->
+
+    <div id="data">
+        <h2>Soil Data</h2>
+        <pre id="soilData"></pre>
+        <h2>NDVI Data</h2>
+        <pre id="ndviData"></pre>
+        <div id="ndviChartContainer">
+            <canvas id="ndviChart"></canvas>
+        </div>
+    </div>
 
     <script>
         var map = L.map('map').setView([51.505, -0.09], 13);
@@ -105,20 +223,7 @@
         }
 
         function sendDataToLINE() {
-            // Get polygon data and other necessary parameters
-            // var polygonData = drawnItems.toGeoJSON();
-            // var polygonID = 'your_polygon_id';
-            // var startDate = 'your_start_date';
-            // var endDate = 'your_end_date';
-            // var appID = 'your_app_id';
-
-            // // Make API call to AgroMonitoring API to fetch NDVI and ENVI data
-            // // Example API call: http://api.agromonitoring.com/agro/1.0/ndvi/history?start={start date}&end={end date}&polyid={ID of polygon}&appid={API key}
-            // // Implement this API call using JavaScript Fetch API or other AJAX methods
-
-            // // After retrieving data, construct a message and send it to LINE chatbot
-            // var message = "NDVI and ENVI data for your polygon:\n"; // Include NDVI and ENVI data here
-            // // Send message to LINE chatbot using appropriate method
+            // Implement this function to send data to LINE
         }
 
         function togglePolygonDraw() {
@@ -199,34 +304,83 @@
         }
 
         function getSoilAndNDVIData(polygonID) {
-    var appID = 'c1e987e3342152a5e6caf65d2122c51e'; // Your AgroMonitoring API key
+            var appID = 'c1e987e3342152a5e6caf65d2122c51e'; // Your AgroMonitoring API key
 
-    // Define start and end dates as Unix timestamps (in seconds)
-    var startDate = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60); // 7 days ago
-    var endDate = Math.floor(Date.now() / 1000); // Current time
+            // Define start and end dates as Unix timestamps (in seconds)
+            var startDate = Math.floor(Date.now() / 1000) - (7 * 24 * 60 * 60); // 7 days ago
+            var endDate = Math.floor(Date.now() / 1000); // Current time
 
-    // Make API call to Agromonitoring API to fetch soil data for the created polygon
-    fetch(`http://api.agromonitoring.com/agro/1.0/soil?polyid=${polygonID}&appid=${appID}`)
-        .then(response => response.json())
-        .then(soilData => {
-            console.log("Soil Data for Polygon ID:", polygonID);
-            console.log(soilData); // Log the soil data to the console
-
-            // Make API call to Agromonitoring API to fetch NDVI data for the created polygon
-            fetch(`http://api.agromonitoring.com/agro/1.0/ndvi/history?start=${startDate}&end=${endDate}&polyid=${polygonID}&appid=${appID}`)
+            // Make API call to Agromonitoring API to fetch soil data for the created polygon
+            fetch(`http://api.agromonitoring.com/agro/1.0/soil?polyid=${polygonID}&appid=${appID}`)
                 .then(response => response.json())
-                .then(ndviData => {
-                    console.log("NDVI Data for Polygon ID:", polygonID);
-                    console.log(ndviData); // Log the NDVI data to the console
+                .then(soilData => {
+                    // Display the soil data in the webpage
+                    document.getElementById('soilData').textContent = JSON.stringify(soilData, null, 2);
+
+                    // Make API call to Agromonitoring API to fetch NDVI data for the created polygon
+                    fetch(`http://api.agromonitoring.com/agro/1.0/ndvi/history?start=${startDate}&end=${endDate}&polyid=${polygonID}&appid=${appID}`)
+                        .then(response => response.json())
+                        .then(ndviData => {
+                            // Display the NDVI data in the webpage
+                            document.getElementById('ndviData').textContent = JSON.stringify(ndviData, null, 2);
+
+                            // Plot the NDVI data
+                            plotNDVIData(ndviData);
+                        })
+                        .catch(error => {
+                            console.error('Error fetching NDVI data:', error);
+                        });
                 })
                 .catch(error => {
-                    console.error('Error fetching NDVI data:', error);
+                    console.error('Error fetching soil data:', error);
                 });
-        })
-        .catch(error => {
-            console.error('Error fetching soil data:', error);
-        });
-}
+        }
+
+        function plotNDVIData(ndviData) {
+            // Extract labels (dates) and data points (NDVI values)
+            var labels = ndviData.map(entry => new Date(entry.date * 1000).toLocaleDateString());
+            var dataPoints = ndviData.map(entry => entry.ndvi);
+
+            // Create a chart
+            var ctx = document.getElementById('ndviChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'NDVI',
+                        data: dataPoints,
+                        borderColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-line-color').trim(),
+                        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--chart-background-color').trim(),
+                        borderWidth: 1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'NDVI Value'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function toggleTheme() {
+            var currentTheme = document.documentElement.getAttribute('data-theme');
+            var newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+        }
     </script>
 </body>
 </html>
